@@ -113,6 +113,8 @@ processed_requests = {}
 # Define the rate limit (500 requests per minute)
 REQUEST_LIMIT = 500
 TIME_PERIOD = 60 # 60 seconds
+CACHE_SIZE_LIMIT = 1000  # Define cache size limit
+
 
 # Memoized dictionary to store distances for efficiency
 memoized_distances = {}
@@ -214,12 +216,23 @@ def solve_tsp(cities):
 @sleep_and_retry
 @limits(calls=REQUEST_LIMIT, period=TIME_PERIOD)
 def process_request(data):
+    # Generate the hash value for the incoming data
     hash_value = qprx.custom_hash(data.decode('utf-8'))
+    
+    # Check if result is already processed
     if hash_value in processed_requests:
         return processed_requests[hash_value]
+    
+    # Process the data if not already done
     cities = json.loads(data.decode('utf-8'))
     result = solve_tsp(cities)
     processed_requests[hash_value] = result
+    
+    # Check cache size and clear if necessary
+    if len(processed_requests) > CACHE_SIZE_LIMIT:
+        # Clear the oldest entries to free up space
+        processed_requests.pop(next(iter(processed_requests)))
+    
     return result
 
 # Server setup
