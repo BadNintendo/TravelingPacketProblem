@@ -89,6 +89,7 @@ def client(protocol='TCP'):
         print(f"Optimized Distance: {response['optimized_distance']}")
         print(f"Initial Solution Time (ms): {response['initial_time']}")
         print(f"Optimization Time (ms): {response['optimized_time']}")
+        print(f"Optimized Array : {response['optimized_array']}")
         print(f"{protocol} Processing Time (ms): {processing_time}")
         
     except Exception as e:

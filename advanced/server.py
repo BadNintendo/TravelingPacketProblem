@@ -202,13 +202,17 @@ def solve_tsp(cities):
     end_optimized = time.time()
     optimized_time = round((end_optimized - start_optimized) * 1000, 2)  # Convert to milliseconds and round to 2 decimal places
 
+    # Construct optimized array with coordinates
+    optimized_array = [{'name': city['name'], 'x': city['x'], 'y': city['y']} for city in path]
+
     result = {
         'initial_path': [city['name'] for city in path],
         'optimized_path': [city['name'] for city in path],
         'initial_distance': initial_distance,
         'optimized_distance': optimized_distance,
         'initial_time': initial_time,
-        'optimized_time': optimized_time
+        'optimized_time': optimized_time,
+        'optimized_array': optimized_array
     }
     return result
 
