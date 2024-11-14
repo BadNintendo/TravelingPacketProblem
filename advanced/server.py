@@ -113,7 +113,7 @@ processed_requests = {}
 # Define the rate limit (500 requests per minute)
 REQUEST_LIMIT = 500
 TIME_PERIOD = 60 # 60 seconds
-CACHE_SIZE_LIMIT = 1000  # Define cache size limit
+CACHE_SIZE_LIMIT = 2000  # Define cache size limit
 
 
 # Memoized dictionary to store distances for efficiency
@@ -147,7 +147,7 @@ def morton_order(city):
     return interleave_bits(x, y)
 
 def solve_tsp(cities):
-    """Find and optimize a path using Morton order, nearest neighbor heuristic, and in-place 2-opt algorithm."""
+    """Optimize the path using the swap opt neighbor method."""
 
     # Precompute and store distances between all pairs of cities
     distances = {frozenset((city1['name'], city2['name'])): calculate_distance(city1, city2)
@@ -156,10 +156,10 @@ def solve_tsp(cities):
     # Sort cities based on Morton order
     cities_sorted = sorted(cities, key=morton_order)
 
-    # Measure time for initial solution using nearest neighbor heuristic
-    start_initial = time.time()
+    # Measure time for the swap opt neighbor process
+    start_time = time.time()
     
-    # Nearest neighbor heuristic and path initialization
+    # Swap opt neighbor heuristic and path initialization
     unvisited = set(city['name'] for city in cities_sorted)
     path = [cities_sorted[0]]
     current_city = cities_sorted[0]
@@ -175,43 +175,26 @@ def solve_tsp(cities):
         path.append(closest)
         current_city = closest
 
+        # Perform local swaps to optimize the path during construction
+        for i in range(1, len(path) - 1):
+            for j in range(i + 1, len(path)):
+                if (calculate_distance(path[i - 1], path[i]) + calculate_distance(path[j], path[(j + 1) % len(path)])
+                    > calculate_distance(path[i - 1], path[j]) + calculate_distance(path[i], path[(j + 1) % len(path)])):
+                    path[i:j + 1] = reversed(path[i:j + 1])
+
     # Ensure path returns to start to form a complete tour
     path.append(path[0])
-    initial_distance = total_distance(path)
-    end_initial = time.time()
-    initial_time = round((end_initial - start_initial) * 1000, 2)  # Convert to milliseconds and round to 2 decimal places
-
-    # Measure time for optimizing the path using in-place 2-opt
-    start_optimized = time.time()
-    
-    # In-place 2-opt optimization
-    improved = True
-
-    while improved:
-        improved = False
-        for i in range(1, len(path) - 2):
-            for j in range(i + 1, len(path) - 1):
-                if (
-                    calculate_distance(path[i - 1], path[i]) + calculate_distance(path[j], path[(j + 1) % len(path)])
-                    > calculate_distance(path[i - 1], path[j]) + calculate_distance(path[i], path[(j + 1) % len(path)])
-                ):
-                    path[i:j + 1] = reversed(path[i:j + 1])
-                    improved = True
-
-    optimized_distance = total_distance(path)
-    end_optimized = time.time()
-    optimized_time = round((end_optimized - start_optimized) * 1000, 2)  # Convert to milliseconds and round to 2 decimal places
+    total_dist = total_distance(path)
+    end_time = time.time()
+    total_time = round((end_time - start_time) * 1000, 2)  # Convert to milliseconds and round to 2 decimal places
 
     # Construct optimized array with coordinates
     optimized_array = [{'name': city['name'], 'x': city['x'], 'y': city['y']} for city in path]
 
     result = {
-        'initial_path': [city['name'] for city in path],
         'optimized_path': [city['name'] for city in path],
-        'initial_distance': initial_distance,
-        'optimized_distance': optimized_distance,
-        'initial_time': initial_time,
-        'optimized_time': optimized_time,
+        'optimized_distance': total_dist,
+        'optimization_time': total_time,
         'optimized_array': optimized_array
     }
     return result
@@ -220,24 +203,31 @@ def solve_tsp(cities):
 @sleep_and_retry
 @limits(calls=REQUEST_LIMIT, period=TIME_PERIOD)
 def process_request(data):
-    # Generate the hash value for the incoming data
-    hash_value = qprx.custom_hash(data.decode('utf-8'))
-    
-    # Check if result is already processed
-    if hash_value in processed_requests:
-        return processed_requests[hash_value]
-    
-    # Process the data if not already done
-    cities = json.loads(data.decode('utf-8'))
-    result = solve_tsp(cities)
-    processed_requests[hash_value] = result
-    
-    # Check cache size and clear if necessary
-    if len(processed_requests) > CACHE_SIZE_LIMIT:
-        # Clear the oldest entries to free up space
-        processed_requests.pop(next(iter(processed_requests)))
-    
-    return result
+    try:
+        request_data = json.loads(data.decode('utf-8'))
+        cities = request_data['data']
+        received_hash = request_data['hash']
+        calculated_hash = qprx.custom_hash(json.dumps(cities).encode('utf-8').decode('utf-8'))
+
+        # Verify the hash
+        if received_hash != calculated_hash:
+            return {"error": "Hash verification failed"}
+
+        # Process the data
+        hash_value = qprx.custom_hash(json.dumps(cities).encode('utf-8').decode('utf-8'))
+        
+        if hash_value in processed_requests:
+            return processed_requests[hash_value]
+        
+        result = solve_tsp(cities)
+        processed_requests[hash_value] = result
+        
+        if len(processed_requests) > CACHE_SIZE_LIMIT:
+            processed_requests.pop(next(iter(processed_requests)))
+        
+        return result
+    except Exception as e:
+        return {"error": str(e)}
 
 # Server setup
 tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
