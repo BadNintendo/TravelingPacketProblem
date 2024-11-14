@@ -1,3 +1,5 @@
+**Note:** The information below pertains to the first model. For the latest and fastest model, please refer to the most recently updated files, likely found in the TSPserver folder.
+
 **Single-Threaded TSP Solver with TCP/UDP Server and Client Communication**
 
 This project implements a single-threaded server-client system to solve the Traveling Salesperson Problem (TSP) using both TCP and UDP communication protocols. The server is designed to handle incoming data from the client, process it to find an optimized path for the TSP, and return the results to the client.
