@@ -1,4 +1,4 @@
-**Note:** The information below pertains to the first model. For the latest and fastest model, please refer to the most recently updated files, likely found in the TSPserver folder.
+**Note:** New speeds can test it yourself in TCPUDP folder -> Old Junk further into this read -> The information below pertains to the first model. For the latest and fastest model, please refer to the most recently updated files, likely found in the TSPserver folder.
 
 **Single-Threaded TSP Solver with TCP/UDP Server and Client Communication**
 
